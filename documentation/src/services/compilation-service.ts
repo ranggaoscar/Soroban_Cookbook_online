@@ -56,13 +56,28 @@ export function isValidBase64(value: unknown): value is string {
 /**
  * Sends contract source code to a remote compilation server to build and optimize
  * WASM bytecode for deployment.
+ *
+ * `apiEndpoint` has no default: there is no public compilation service, and the
+ * previous placeholder (`api.sorobancookbook.org`) does not resolve in DNS, so
+ * every caller that relied on it silently failed at network time. A caller must
+ * name the compiler it is talking to, and a missing endpoint is reported before
+ * any request is attempted.
  */
 export async function compileContractRemote(
   request: CompilationRequest,
-  apiEndpoint = 'https://api.sorobancookbook.org/v1/compile',
+  apiEndpoint?: string,
 ): Promise<CompilationResponse> {
+  const endpoint = typeof apiEndpoint === 'string' ? apiEndpoint.trim() : '';
+  if (endpoint === '') {
+    return {
+      success: false,
+      error:
+        'No compilation endpoint configured: pass the endpoint of a Soroban compilation service explicitly.',
+    };
+  }
+
   try {
-    const response = await fetch(apiEndpoint, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

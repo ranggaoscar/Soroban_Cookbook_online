@@ -85,6 +85,9 @@ describe('compileContractRemote', () => {
 
   const validWasmBase64 = 'AGFzbQEAAAA=';
 
+  // Callers must name the compiler: the service has no usable default endpoint.
+  const testEndpoint = 'https://compiler.test/compile';
+
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -111,7 +114,7 @@ describe('compileContractRemote', () => {
       }),
     );
 
-    const result = await compileContractRemote(dummyRequest);
+    const result = await compileContractRemote(dummyRequest, testEndpoint);
 
     expect(result.success).toBe(true);
     expect(result.wasmBase64).toBe(validWasmBase64);
@@ -136,7 +139,7 @@ describe('compileContractRemote', () => {
       }),
     );
 
-    const result = await compileContractRemote(dummyRequest);
+    const result = await compileContractRemote(dummyRequest, testEndpoint);
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/missing wasmBase64 payload/i);
@@ -158,7 +161,7 @@ describe('compileContractRemote', () => {
       }),
     );
 
-    const result = await compileContractRemote(dummyRequest);
+    const result = await compileContractRemote(dummyRequest, testEndpoint);
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/missing wasmBase64 payload/i);
@@ -181,7 +184,7 @@ describe('compileContractRemote', () => {
       }),
     );
 
-    const result = await compileContractRemote(dummyRequest);
+    const result = await compileContractRemote(dummyRequest, testEndpoint);
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/not a valid base64 string/i);
@@ -202,7 +205,7 @@ describe('compileContractRemote', () => {
       }),
     );
 
-    const result = await compileContractRemote(dummyRequest);
+    const result = await compileContractRemote(dummyRequest, testEndpoint);
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/not a valid base64 string/i);
@@ -224,7 +227,7 @@ describe('compileContractRemote', () => {
       }),
     );
 
-    const result = await compileContractRemote(dummyRequest);
+    const result = await compileContractRemote(dummyRequest, testEndpoint);
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('Syntax error on line 42');
@@ -241,7 +244,7 @@ describe('compileContractRemote', () => {
       }),
     );
 
-    const result = await compileContractRemote(dummyRequest);
+    const result = await compileContractRemote(dummyRequest, testEndpoint);
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('Server compilation failed [HTTP 500]');
@@ -251,7 +254,7 @@ describe('compileContractRemote', () => {
   it('handles network failure with Error object', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Connection refused')));
 
-    const result = await compileContractRemote(dummyRequest);
+    const result = await compileContractRemote(dummyRequest, testEndpoint);
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('Network request failed: Connection refused');
@@ -260,10 +263,34 @@ describe('compileContractRemote', () => {
   it('handles network failure with non-Error rejection', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue('Network timeout occurred'));
 
-    const result = await compileContractRemote(dummyRequest);
+    const result = await compileContractRemote(dummyRequest, testEndpoint);
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('Network request failed: Network timeout occurred');
+  });
+
+  it('reports a missing endpoint instead of calling an unusable default', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await compileContractRemote(dummyRequest);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('No compilation endpoint configured');
+    // The bug this covers: the old default pointed at a host that does not resolve,
+    // so the failure surfaced later as an opaque network error.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('treats a blank endpoint as missing rather than fetching it', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await compileContractRemote(dummyRequest, '   ');
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('No compilation endpoint configured');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('passes custom apiEndpoint when specified by callers', async () => {
