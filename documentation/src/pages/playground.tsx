@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Layout from '@theme/Layout';
 import styles from './playground.module.css';
+import { decodeSharedCode, encodeSharedCode } from './shareCode';
 
 declare global {
   interface Window {
@@ -41,23 +42,8 @@ impl HelloContract {
 
 const SHARE_HASH_PREFIX = '#code=';
 
-function encodeSharedCode(value: string): string {
-  const bytes = new TextEncoder().encode(value);
-  let binary = '';
-
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-
-  return window.btoa(binary);
-}
-
-function decodeSharedCode(value: string): string {
-  const binary = window.atob(value);
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-
-  return new TextDecoder().decode(bytes);
-}
+// Shared code travels in the URL fragment, so it is encoded as base64url without
+// padding. See ./shareCode.ts for the encoding rules and the legacy-link support.
 
 function getSharedCodeFromHash(hash: string): string | null {
   if (!hash.startsWith(SHARE_HASH_PREFIX)) {
