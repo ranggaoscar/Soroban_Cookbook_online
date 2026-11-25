@@ -33,11 +33,15 @@ test.describe('Bookmarks page', () => {
   test('a bookmark added from a doc page appears on the bookmarks page', async ({ page }) => {
     // Wait for hydration so the click reaches the React handler.
     await page.goto(DOC_PATH, { waitUntil: 'networkidle' });
-    await page.getByRole('button', { name: 'Add bookmark' }).click();
-    await expect(page.getByRole('button', { name: 'Remove bookmark' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    await page.getByRole('button', { name: 'Reject analytics' }).click();
+    // The pattern also has a star-only control. Exercise the floating page bookmark.
+    await page
+      .getByRole('button', { name: 'Add bookmark' })
+      .filter({ hasText: 'Bookmark' })
+      .click();
+    await expect(
+      page.getByRole('button', { name: 'Remove bookmark' }).filter({ hasText: 'Saved' }),
+    ).toHaveAttribute('aria-pressed', 'true');
 
     await page.goto('/bookmarks');
 
@@ -45,6 +49,21 @@ test.describe('Bookmarks page', () => {
     await expect(
       page.getByRole('main').getByRole('link', { name: new RegExp(`^${DOC_PATH}/?$`) }),
     ).toBeVisible();
+  });
+
+  test('opens a bookmarked document without a full page reload', async ({ page }) => {
+    await seedBookmarks(page, [DOC_PATH]);
+    const link = page.getByRole('main').getByRole('link', { name: DOC_PATH, exact: true });
+    await expect(link).toBeVisible();
+    const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+
+    await link.click();
+
+    await expect(page).toHaveURL(/\/docs\/patterns\/hello-world\/?$/);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Hello World Storage' }),
+    ).toBeVisible();
+    expect(await page.evaluate(() => performance.timeOrigin)).toBe(timeOrigin);
   });
 
   test('removing a bookmark removes it from the list and persists', async ({ page }) => {

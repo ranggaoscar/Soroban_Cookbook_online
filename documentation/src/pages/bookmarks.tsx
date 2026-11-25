@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
 import { useBookmarks } from '../hooks/useBookmarks';
 
@@ -25,7 +26,7 @@ export default function BookmarksPage() {
             <ul>
               {bookmarks.map((path) => (
                 <li key={path}>
-                  <a href={path}>{path}</a>{' '}
+                  <Link to={path}>{path}</Link>{' '}
                   <button type="button" onClick={() => removeBookmark(path)}>
                     Remove
                   </button>
