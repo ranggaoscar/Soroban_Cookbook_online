@@ -58,6 +58,16 @@
   border-color: var(--ifm-color-emphasis-400);
 }
 
+.copyHint {
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--ifm-font-color-base);
+  background: var(--ifm-color-emphasis-100);
+  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+}
+
 .copyButton:active {
   transform: scale(0.98);
 }

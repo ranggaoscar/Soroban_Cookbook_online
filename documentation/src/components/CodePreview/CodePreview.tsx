@@ -4,6 +4,12 @@ import clsx from 'clsx';
 import styles from './CodePreview.module.css';
 import type { CodePreviewProps } from './types';
 
+/** Where the copy button is in its feedback cycle. */
+type CopyState = 'idle' | 'copied' | 'manual';
+
+/** How long the "Copied!" confirmation stays before the button returns to idle. */
+const COPY_FEEDBACK_MS = 1500;
+
 function CopyIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -58,25 +64,25 @@ export default function CodePreview({
   showLineNumbers = true,
   collapseAt = 0,
 }: CodePreviewProps): React.ReactElement {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<CopyState>('idle');
   const [expanded, setExpanded] = useState(false);
 
   const handleCopy = useCallback(async () => {
+    // document.execCommand('copy') is deprecated and has already been removed from
+    // some browsers, so there is no scripted fallback left to fall back to. When the
+    // Clipboard API is missing or refuses (insecure context, permission denied), say
+    // so instead of reporting a copy that never happened.
+    const clipboard = navigator.clipboard;
+    if (!clipboard || typeof clipboard.writeText !== 'function') {
+      setCopyState('manual');
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+      await clipboard.writeText(code);
+      setCopyState('copied');
+      window.setTimeout(() => setCopyState('idle'), COPY_FEEDBACK_MS);
     } catch {
-      const textarea = document.createElement('textarea');
-      textarea.value = code;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+      setCopyState('manual');
     }
   }, [code]);
 
@@ -98,11 +104,23 @@ export default function CodePreview({
         <button
           className={styles.copyButton}
           onClick={handleCopy}
-          aria-label={copied ? 'Copied to clipboard' : 'Copy code to clipboard'}>
-          {copied ? (
+          aria-label={
+            copyState === 'copied'
+              ? 'Copied to clipboard'
+              : copyState === 'manual'
+                ? 'Clipboard unavailable, copy the code manually'
+                : 'Copy code to clipboard'
+          }
+          data-copy-state={copyState}>
+          {copyState === 'copied' ? (
             <>
               <CheckIcon className={styles.copyIcon} />
               <span>Copied!</span>
+            </>
+          ) : copyState === 'manual' ? (
+            <>
+              <CopyIcon className={styles.copyIcon} />
+              <span>Copy manually</span>
             </>
           ) : (
             <>
@@ -112,6 +130,13 @@ export default function CodePreview({
           )}
         </button>
       </div>
+
+      {copyState === 'manual' && (
+        <p className={styles.copyHint} role="status">
+          This browser did not grant clipboard access. Select the code and press Ctrl+C (Cmd+C on
+          macOS) to copy it.
+        </p>
+      )}
 
       <Highlight theme={themes.vsDark} code={displayCode} language={language}>
         {({ className: hlClassName, style, tokens, getLineProps, getTokenProps }) => (
